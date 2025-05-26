@@ -283,8 +283,16 @@ func (d *Decompressor) appendToHistory(data []byte) {
 	d.historyBuffer = append(d.historyBuffer, data...)
 	if len(d.historyBuffer) > HISTORY_SIZE {
 		excess := len(d.historyBuffer) - HISTORY_SIZE
+		// More efficient slice trimming without allocation
 		d.historyBuffer = d.historyBuffer[excess:]
-		// Optional capacity management (see compressor)
+		// Ensure capacity doesn't grow indefinitely if we only trim small amounts often
+		// This check is optional but can help manage memory if HISTORY_SIZE is huge
+		// and trimming happens very frequently. For 32k it might be okay.
+		if cap(d.historyBuffer) > HISTORY_SIZE*2 && len(d.historyBuffer) < HISTORY_SIZE+(HISTORY_SIZE/4) {
+			newSlice := make([]byte, len(d.historyBuffer), HISTORY_SIZE*2)
+			copy(newSlice, d.historyBuffer)
+			d.historyBuffer = newSlice
+		}
 	}
 }
 
